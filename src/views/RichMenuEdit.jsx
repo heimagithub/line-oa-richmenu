@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import AreaRegionPanel from '../components/AreaRegionPanel'
 import { richMenuApi } from '../api/richMenu'
 import {
@@ -183,7 +183,16 @@ function computeResizedBounds(corner, start, canvasDx, canvasDy, canvasH) {
 export default function RichMenuEdit() {
   const navigate = useNavigate()
   const { id } = useParams()
-  const isEditMode = useMemo(() => Boolean(id), [id])
+  const [searchParams] = useSearchParams()
+  const isCopyMode = useMemo(
+    () => Boolean(id) && searchParams.get('mode') === 'copy',
+    [id, searchParams]
+  )
+  const isEditMode = useMemo(() => Boolean(id) && !isCopyMode, [id, isCopyMode])
+  const pageTitle = useMemo(() => {
+    if (isCopyMode) return '複製圖文選單'
+    return isEditMode ? '編輯圖文選單' : '新增圖文選單'
+  }, [isCopyMode, isEditMode])
 
   const [saving, setSaving] = useState(false)
   const [expandedAreaIndex, setExpandedAreaIndex] = useState(null)
@@ -192,6 +201,7 @@ export default function RichMenuEdit() {
   const [activeLayoutId, setActiveLayoutId] = useState(fullLayouts[0].id)
   const [selectedAreaIndex, setSelectedAreaIndex] = useState(null)
   const [dragState, setDragState] = useState(null)
+  const [savedRichMenus, setSavedRichMenus] = useState([])
   const previewRef = useRef(null)
   const areaAccordionListRef = useRef(null)
   const [formData, setFormData] = useState({
@@ -208,7 +218,7 @@ export default function RichMenuEdit() {
   const visibleLayouts = useMemo(() => layoutsForMenuSize(menuSize), [menuSize])
 
   useEffect(() => {
-    if (!isEditMode) return
+    if (!id) return
     ;(async () => {
       try {
         const data = await richMenuApi.getRichMenu(id)
@@ -234,7 +244,22 @@ export default function RichMenuEdit() {
         alert('載入失敗')
       }
     })()
-  }, [id, isEditMode])
+  }, [id])
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const list = await richMenuApi.getList()
+        setSavedRichMenus(Array.isArray(list) ? list : [])
+      } catch {
+        setSavedRichMenus([])
+      }
+    })()
+  }, [])
+
+  const switchTargetOptions = useMemo(() => {
+    return savedRichMenus.filter((item) => String(item.id) !== String(id || ''))
+  }, [savedRichMenus, id])
 
   const applyLayout = (layout) => {
     setActiveLayoutId(layout.id)
@@ -513,7 +538,7 @@ export default function RichMenuEdit() {
   return (
     <section className="panel richmenu-page">
       <div className="page-head">
-        <h2>{isEditMode ? '編輯圖文選單' : '新增圖文選單'}</h2>
+        <h2>{pageTitle}</h2>
         <div className="actions">
           <button className="btn btn-light" onClick={() => navigate('/richmenu/list')}>返回</button>
           <button className="btn btn-success" disabled={saving} onClick={handleSubmit}>{saving ? '儲存中...' : (isEditMode ? '儲存變更' : '建立圖文選單')}</button>
@@ -573,6 +598,7 @@ export default function RichMenuEdit() {
             ) : (
               <AreaRegionPanel
                 areas={formData.areas}
+                switchTargetOptions={switchTargetOptions}
                 expandedIndex={expandedAreaIndex}
                 selectedIndex={selectedAreaIndex}
                 accordionListRef={areaAccordionListRef}

@@ -113,6 +113,27 @@ export const richMenuApi = {
     return { success: true, data }
   },
 
+  async publishRichMenu(id, data = {}) {
+    const list = readAll()
+    const idx = list.findIndex((item) => String(item.id) === String(id))
+    if (idx < 0) throw new Error('Rich menu not found')
+
+    const mode = data?.mode === 'scheduled' ? 'scheduled' : 'instant'
+    const now = toTimestampString()
+    const next = normalizeRichMenuRecord({
+      ...list[idx],
+      status: mode === 'scheduled' ? 'scheduled' : 'published',
+      scheduledAt: mode === 'scheduled' ? data?.scheduledAt || '' : '',
+      scheduled_at: mode === 'scheduled' ? data?.scheduledAt || '' : '',
+      updatedAt: now,
+      updated_at: now
+    })
+
+    list[idx] = next
+    writeAll(list)
+    return next
+  },
+
   async unlinkRichMenu(data) {
     return { success: true, data }
   },

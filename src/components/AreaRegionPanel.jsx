@@ -5,7 +5,7 @@ import {
   normalizeAction
 } from '../utils/richMenuAreaActions'
 
-function AreaActionFields({ action, onChange }) {
+function AreaActionFields({ action, onChange, switchTargetOptions = [] }) {
   const type = action?.type || 'none'
 
   const setType = (nextType) => {
@@ -78,32 +78,24 @@ function AreaActionFields({ action, onChange }) {
       {type === 'richmenuswitch' && (
         <>
           <label className="area-field-block">
-            <span className="area-field-label">圖文選單別名 (richMenuAliasId) <span className="req">*</span></span>
-            <input
+            <span className="area-field-label">切換目標圖文選單 <span className="req">*</span></span>
+            <select
               value={action.richMenuAliasId || ''}
               onChange={(e) =>
                 patch({
                   type: 'richmenuswitch',
                   richMenuAliasId: e.target.value,
-                  data: action.data
+                  data: ''
                 })
               }
-              placeholder="要切換過去的選單 ID"
-            />
-          </label>
-          <label className="area-field-block">
-            <span className="area-field-label">資料 (data) <span className="req">*</span></span>
-            <input
-              value={action.data || ''}
-              onChange={(e) =>
-                patch({
-                  type: 'richmenuswitch',
-                  richMenuAliasId: action.richMenuAliasId,
-                  data: e.target.value
-                })
-              }
-              placeholder="Webhook 收到的字串"
-            />
+            >
+              <option value="">請選擇已儲存圖文選單</option>
+              {switchTargetOptions.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name || item.id}
+                </option>
+              ))}
+            </select>
           </label>
         </>
       )}
@@ -115,6 +107,7 @@ function AreaActionFields({ action, onChange }) {
 
 export default function AreaRegionPanel({
   areas,
+  switchTargetOptions,
   expandedIndex,
   selectedIndex,
   accordionListRef,
@@ -166,6 +159,7 @@ export default function AreaRegionPanel({
 
                   <AreaActionFields
                     action={normalizeAction(area.action)}
+                    switchTargetOptions={switchTargetOptions}
                     onChange={(next) => onAreaActionChange(idx, next)}
                   />
 

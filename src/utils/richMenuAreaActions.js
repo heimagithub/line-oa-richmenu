@@ -84,7 +84,6 @@ export function validateAction(action) {
       return action.data?.trim() ? null : '「Postback」的資料 (data) 為必填'
     case 'richmenuswitch':
       if (!action.richMenuAliasId?.trim()) return '「切換圖文選單」需填寫圖文選單別名'
-      if (!action.data?.trim()) return '「切換圖文選單」的資料 (data) 為必填'
       return null
     default:
       return null
