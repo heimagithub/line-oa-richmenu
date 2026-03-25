@@ -1,21 +1,15 @@
 import axios from 'axios'
 
+const defaultApiBaseUrl = 'https://26tif7inm6.execute-api.ap-northeast-1.amazonaws.com/api/v1'
+
 const instance = axios.create({
-  baseURL: '/api',
+  baseURL: (import.meta.env.VITE_API_BASE_URL || defaultApiBaseUrl).replace(/\/$/, ''),
   timeout: 30000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json'
   }
 })
-
-instance.interceptors.request.use(
-  config => {
-    return config
-  },
-  error => {
-    return Promise.reject(error)
-  }
-)
 
 instance.interceptors.response.use(
   response => {

@@ -180,7 +180,7 @@ function computeResizedBounds(corner, start, canvasDx, canvasDy, canvasH) {
   }
 }
 
-export default function RichMenuEdit() {
+export default function RichMenuEdit({ selectedOaId }) {
   const navigate = useNavigate()
   const { id } = useParams()
   const [searchParams] = useSearchParams()
@@ -218,10 +218,10 @@ export default function RichMenuEdit() {
   const visibleLayouts = useMemo(() => layoutsForMenuSize(menuSize), [menuSize])
 
   useEffect(() => {
-    if (!id) return
+    if (!id || !selectedOaId) return
     ;(async () => {
       try {
-        const data = await richMenuApi.getRichMenu(id)
+        const data = await richMenuApi.getRichMenu(id, { oaId: selectedOaId })
         const normalized = data?.data || data
         const { description: _ignoredDesc, ...restNormalized } = normalized
         const rawAreas = restNormalized.areas
@@ -244,18 +244,22 @@ export default function RichMenuEdit() {
         alert('載入失敗')
       }
     })()
-  }, [id])
+  }, [id, selectedOaId])
 
   useEffect(() => {
+    if (!selectedOaId) {
+      setSavedRichMenus([])
+      return
+    }
     ;(async () => {
       try {
-        const list = await richMenuApi.getList()
-        setSavedRichMenus(Array.isArray(list) ? list : [])
+        const list = await richMenuApi.getList({ oaId: selectedOaId })
+        setSavedRichMenus(Array.isArray(list) ? list : list?.data || [])
       } catch {
         setSavedRichMenus([])
       }
     })()
-  }, [])
+  }, [selectedOaId])
 
   const switchTargetOptions = useMemo(() => {
     return savedRichMenus.filter((item) => String(item.id) !== String(id || ''))
@@ -490,6 +494,10 @@ export default function RichMenuEdit() {
   }
 
   const handleSubmit = async () => {
+    if (!selectedOaId) {
+      alert('請先選擇 OA 後再儲存')
+      return
+    }
     if (!formData.name || !formData.imageUrl || formData.areas.length === 0) {
       alert('請完整填寫名稱、圖片與區域')
       return
@@ -506,13 +514,15 @@ export default function RichMenuEdit() {
       }
     }
 
+    const isDataUrlImage = String(formData.imageUrl || '').startsWith('data:image/')
     const payload = {
       name: formData.name,
       description: '',
       chatBarText: formData.chatBarText,
-      imageUrl: formData.imageUrl,
+      ...(isDataUrlImage ? { imageBase64: formData.imageUrl } : { imageUrl: formData.imageUrl }),
       size: { width: CANVAS_W, height: canvasH },
       selected: false,
+      oaId: selectedOaId,
       areas: formData.areas.map((a) => ({
         bounds: a.bounds,
         areaName: (a.areaName || '').trim(),
@@ -523,7 +533,7 @@ export default function RichMenuEdit() {
     setSaving(true)
     try {
       if (isEditMode) {
-        await richMenuApi.updateRichMenu(id, payload)
+        await richMenuApi.updateRichMenu(id, payload, { oaId: selectedOaId })
       } else {
         await richMenuApi.createRichMenu(payload)
       }
