@@ -11,13 +11,22 @@ const instance = axios.create({
   }
 })
 
+function isExpectedUnauthenticatedAuthProbe(error) {
+  if (error.response?.status !== 401) return false
+  const url = error.config?.url || ''
+  return url.includes('/auth/me') || url.includes('/auth/refresh')
+}
+
 instance.interceptors.response.use(
   response => {
     return response.data
   },
   error => {
-    console.error('API Error:', error)
-    if (error.response) {
+    const quiet401 = isExpectedUnauthenticatedAuthProbe(error)
+    if (!quiet401) {
+      console.error('API Error:', error)
+    }
+    if (error.response && !quiet401) {
       switch (error.response.status) {
         case 401:
           console.error('未授權')
