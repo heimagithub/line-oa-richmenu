@@ -2,3 +2,4 @@ frontend/UI_image/
 *.png
 *.jpg
 node_modules/
+.env*
