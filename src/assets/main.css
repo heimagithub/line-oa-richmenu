@@ -115,6 +115,7 @@ a {
 .app-header-title {
   font-size: 20px;
   font-weight: 700;
+  cursor: pointer;
 }
 
 .app-header-left {
@@ -144,6 +145,37 @@ a {
 
 .header-link-btn:hover {
   background: var(--color-nav-hover);
+}
+
+.header-pro-btn {
+  /* paid-only badge: 只保留內部「pro」方塊，不要外框 */
+  border: 0;
+  background: transparent;
+  padding: 0;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-pro-btn:hover {
+  background: transparent;
+}
+
+.pro-icon-circle {
+  width: 28px;
+  height: 28px;
+  /* square with rounded corners */
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 900;
+  color: #fff;
+  background: #6c54ff;
+  letter-spacing: 0.2px;
+  text-transform: lowercase;
 }
 
 .oa-dropdown {

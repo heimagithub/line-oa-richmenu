@@ -7,6 +7,7 @@ import PricingPlan from './views/PricingPlan'
 import PaymentHistory from './views/PaymentHistory'
 import { authApi } from './api/auth'
 import { oaApi } from './api/oa'
+import { paymentApi } from './api/payment'
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 
@@ -36,7 +37,7 @@ function textToLogo(name) {
   return (name || 'O').slice(0, 1).toUpperCase()
 }
 
-function Header({ dark, onToggleTheme, selectedOaId, onSelectOa, currentUser, onLogout, oaOptions }) {
+function Header({ dark, onToggleTheme, selectedOaId, onSelectOa, currentUser, onLogout, oaOptions, paymentValidity }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [oaMenuOpen, setOaMenuOpen] = useState(false)
   const avatarMenuRef = useRef(null)
@@ -73,7 +74,13 @@ function Header({ dark, onToggleTheme, selectedOaId, onSelectOa, currentUser, on
   return (
     <header className="app-header">
       <div className="app-header-left">
-        <div className="app-header-title">圖文選單管理</div>
+        <Link
+          to="/richmenu/list"
+          className="app-header-title"
+          aria-label="前往圖文選單列表"
+        >
+          圖文選單管理
+        </Link>
         <div className="oa-dropdown" ref={oaMenuRef}>
           <button
             type="button"
@@ -130,12 +137,24 @@ function Header({ dark, onToggleTheme, selectedOaId, onSelectOa, currentUser, on
         </div>
       </div>
       <div className="app-header-actions">
-        <Link to="/pricing" className="header-link-btn" title="查看方案">
-          付費
-        </Link>
-        <Link to="/payment-history" className="header-link-btn" title="付費紀錄">
-          付費紀錄
-        </Link>
+        {paymentValidity ? (
+          paymentValidity.isPaid ? (
+            <Link
+              to="/pricing"
+              className="header-link-btn header-pro-btn"
+              title="PRO 已啟用"
+              aria-label="PRO 已啟用"
+            >
+              <span className="pro-icon-circle" aria-hidden="true">
+                pro
+              </span>
+            </Link>
+          ) : (
+            <Link to="/pricing" className="header-link-btn" title="查看方案">
+              付費
+            </Link>
+          )
+        ) : null}
         <div className="avatar-menu" ref={avatarMenuRef}>
           <button
             type="button"
@@ -157,6 +176,14 @@ function Header({ dark, onToggleTheme, selectedOaId, onSelectOa, currentUser, on
                 <div className="avatar-menu-name">{currentUser?.name || '未登入使用者'}</div>
                 <div className="avatar-menu-email">{currentUser?.email || ''}</div>
               </div>
+              <Link
+                to="/payment-history"
+                className="avatar-menu-item"
+                role="menuitem"
+                onClick={() => setMenuOpen(false)}
+              >
+                付費紀錄
+              </Link>
               <button
                 type="button"
                 className="avatar-menu-item"
@@ -479,6 +506,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null)
   const [oaOptions, setOaOptions] = useState([])
   const [authReady, setAuthReady] = useState(false)
+  const [paymentValidity, setPaymentValidity] = useState(null)
 
   useLayoutEffect(() => {
     const root = document.documentElement
@@ -508,6 +536,29 @@ export default function App() {
       setOaOptions([])
       setSelectedOaId('')
     })
+  }, [currentUser])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadPaymentValidity = async () => {
+      if (!currentUser) {
+        setPaymentValidity(null)
+        return
+      }
+      try {
+        const res = await paymentApi.check()
+        if (cancelled) return
+        setPaymentValidity(res?.data || null)
+      } catch (e) {
+        // If check fails, default to "unpaid" so the pay CTA still shows.
+        if (cancelled) return
+        setPaymentValidity({ isPaid: false })
+      }
+    }
+    loadPaymentValidity()
+    return () => {
+      cancelled = true
+    }
   }, [currentUser])
 
   useEffect(() => {
@@ -559,6 +610,7 @@ export default function App() {
     setCurrentUser(null)
     setOaOptions([])
     setSelectedOaId('')
+    setPaymentValidity(null)
   }
 
   if (!authReady) return null
@@ -582,6 +634,7 @@ export default function App() {
                 currentUser={currentUser}
                 onLogout={handleLogout}
                 oaOptions={oaOptions}
+                paymentValidity={paymentValidity}
               />
               <main className="app-main">
                 <AppRoutes

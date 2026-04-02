@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { paymentApi } from '../api/payment'
 
 const MONTHLY_PRICE = 600
@@ -11,6 +11,7 @@ function formatPrice(value) {
 export default function PricingPlan() {
   const [billingCycle, setBillingCycle] = useState('monthly')
   const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [paymentValidity, setPaymentValidity] = useState(null)
 
   const plan = useMemo(() => {
     const isYearly = billingCycle === 'yearly'
@@ -19,12 +20,30 @@ export default function PricingPlan() {
     const description = isYearly ? '年繳方案（一次扣款）' : '月繳方案'
 
     return {
-      name: '標準方案',
+      name: 'pro',
       description,
       price,
       unitLabel
     }
   }, [billingCycle])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const load = async () => {
+      try {
+        const res = await paymentApi.check()
+        if (!cancelled) setPaymentValidity(res?.data || null)
+      } catch {
+        if (!cancelled) setPaymentValidity({ isPaid: false })
+      }
+    }
+
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const handleLinePayCheckout = async () => {
     setCheckoutLoading(true)
@@ -88,9 +107,9 @@ export default function PricingPlan() {
           type="button"
           className="pricing-linepay-btn"
           onClick={handleLinePayCheckout}
-          disabled={checkoutLoading}
+          disabled={paymentValidity?.isPaid || checkoutLoading}
         >
-          {checkoutLoading ? '建立訂單中…' : '使用 LINE Pay 付費'}
+          {paymentValidity?.isPaid ? '目前使用方案' : checkoutLoading ? '建立訂單中…' : '使用 LINE Pay 付費'}
         </button>
       </article>
     </section>

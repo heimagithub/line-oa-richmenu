@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { richMenuApi } from '../api/richMenu'
+import { paymentApi } from '../api/payment'
 
 export default function RichMenuList({ selectedOaId }) {
   const navigate = useNavigate()
@@ -13,6 +14,7 @@ export default function RichMenuList({ selectedOaId }) {
   const [publishTarget, setPublishTarget] = useState(null)
   const [publishType, setPublishType] = useState('set_default')
   const [publishing, setPublishing] = useState(false)
+  const [unpaidPublishDialogOpen, setUnpaidPublishDialogOpen] = useState(false)
   const [unlinkingDefault, setUnlinkingDefault] = useState(false)
   const [selectedIds, setSelectedIds] = useState([])
   const [removingRichMenus, setRemovingRichMenus] = useState(false)
@@ -105,12 +107,14 @@ export default function RichMenuList({ selectedOaId }) {
     setPublishDialogOpen(false)
     setPublishTarget(null)
     setPublishType('set_default')
+    setUnpaidPublishDialogOpen(false)
   }
 
   const openPublishDialog = (item) => {
     setPublishTarget(item)
     setPublishType('set_default')
     setPublishDialogOpen(true)
+    setUnpaidPublishDialogOpen(false)
   }
 
   const handlePublishSubmit = async () => {
@@ -118,11 +122,39 @@ export default function RichMenuList({ selectedOaId }) {
 
     setPublishing(true)
     try {
+      const checkRes = await paymentApi.check()
+      const isPaid = Boolean(checkRes?.data?.isPaid)
+      if (!isPaid) {
+        setUnpaidPublishDialogOpen(true)
+        return
+      }
       await richMenuApi.publishRichMenu(publishTarget.id, {
         mode: 'publish',
         setAsDefault: publishType === 'set_default',
         oaId: selectedOaId
       })
+      setSelectedIds([])
+      await fetchList()
+      closePublishDialog()
+    } catch (error) {
+      alert('發佈失敗')
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  const handleUnpaidPublishTest = async () => {
+    if (!publishTarget) return
+
+    setPublishing(true)
+    try {
+      await richMenuApi.publishRichMenu(publishTarget.id, {
+        mode: 'publish',
+        setAsDefault: publishType === 'set_default',
+        oaId: selectedOaId,
+        testPublishWithoutPayment: true
+      })
+      setUnpaidPublishDialogOpen(false)
       setSelectedIds([])
       await fetchList()
       closePublishDialog()
@@ -484,6 +516,59 @@ export default function RichMenuList({ selectedOaId }) {
             <div className="modal-footer">
               <button type="button" className="btn btn-success" onClick={handlePublishSubmit} disabled={publishing}>
                 {publishing ? '處理中...' : '確認發佈'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {unpaidPublishDialogOpen && (
+        <div
+          className="modal-backdrop"
+          onMouseDown={() => {
+            if (publishing) return
+            setUnpaidPublishDialogOpen(false)
+          }}
+        >
+          <div className="modal-card publish-dialog-card" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>尚未完成付費</h3>
+              <button
+                type="button"
+                className="publish-dialog-close"
+                onClick={() => {
+                  if (publishing) return
+                  setUnpaidPublishDialogOpen(false)
+                }}
+                disabled={publishing}
+                aria-label="關閉"
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal-content">
+              <div className="publish-dialog-hint">請付費完即可發佈圖文選單。</div>
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn btn-light"
+                onClick={() => {
+                  if (publishing) return
+                  setUnpaidPublishDialogOpen(false)
+                  navigate('/pricing')
+                }}
+                disabled={publishing}
+              >
+                前往方案付費
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={handleUnpaidPublishTest}
+                disabled={publishing}
+              >
+                沒付費發佈（測試階段）
               </button>
             </div>
           </div>

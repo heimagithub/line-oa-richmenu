@@ -61,12 +61,12 @@ export default function PaymentHistory() {
           <thead>
             <tr>
               <th>訂單編號</th>
-              <th>建立時間</th>
               <th>方案</th>
               <th>週期</th>
               <th>金額</th>
               <th>狀態</th>
-              <th>付款時間</th>
+              <th>付款(開始)時間</th>
+              <th>方案結束時間</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -87,7 +87,6 @@ export default function PaymentHistory() {
               orders.map((order) => (
                 <tr key={order.orderId}>
                   <td className="payment-order-id">{order.orderId}</td>
-                  <td>{formatDateTime(order.createdAt)}</td>
                   <td>{order.planName || order.productName || '—'}</td>
                   <td>{order.billingCycle === 'yearly' ? '年繳' : order.billingCycle === 'monthly' ? '月繳' : order.billingCycle || '—'}</td>
                   <td>
@@ -101,6 +100,7 @@ export default function PaymentHistory() {
                     </span>
                   </td>
                   <td>{formatDateTime(order.paidAt)}</td>
+                  <td>{formatDateTime(order.planEndAt)}</td>
                   <td className="actions">
                     {order.status === 'pending' && order.paymentUrl ? (
                       <a href={order.paymentUrl} className="payment-pay-link" rel="noopener noreferrer">
