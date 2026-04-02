@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { richMenuApi } from '../api/richMenu'
 
@@ -8,6 +8,7 @@ export default function RichMenuList({ selectedOaId }) {
   const [list, setList] = useState([])
   const [searchKeyword, setSearchKeyword] = useState('')
   const [pageSize, setPageSize] = useState(10)
+  const [page, setPage] = useState(1)
   const [publishDialogOpen, setPublishDialogOpen] = useState(false)
   const [publishTarget, setPublishTarget] = useState(null)
   const [publishType, setPublishType] = useState('set_default')
@@ -16,12 +17,14 @@ export default function RichMenuList({ selectedOaId }) {
   const [selectedIds, setSelectedIds] = useState([])
   const [removingRichMenus, setRemovingRichMenus] = useState(false)
   const [removingAllRichMenus, setRemovingAllRichMenus] = useState(false)
+  const [bindOaDialogOpen, setBindOaDialogOpen] = useState(false)
 
-  const fetchList = async () => {
+  const fetchList = async (resetPage = false) => {
     if (!selectedOaId) {
       setList([])
       return
     }
+    if (resetPage) setPage(1)
     setLoading(true)
     try {
       const data = await richMenuApi.getList({
@@ -38,8 +41,19 @@ export default function RichMenuList({ selectedOaId }) {
   }
 
   useEffect(() => {
-    fetchList()
+    fetchList(true)
   }, [pageSize, selectedOaId])
+
+  const totalPages = Math.max(1, Math.ceil(list.length / pageSize))
+
+  useEffect(() => {
+    setPage((p) => Math.min(p, totalPages))
+  }, [totalPages])
+
+  const paginatedList = useMemo(() => {
+    const start = (page - 1) * pageSize
+    return list.slice(start, start + pageSize)
+  }, [list, page, pageSize])
 
   useEffect(() => {
     const allowedIds = new Set((list || []).map((item) => item.id))
@@ -109,6 +123,7 @@ export default function RichMenuList({ selectedOaId }) {
         setAsDefault: publishType === 'set_default',
         oaId: selectedOaId
       })
+      setSelectedIds([])
       await fetchList()
       closePublishDialog()
     } catch (error) {
@@ -133,7 +148,7 @@ export default function RichMenuList({ selectedOaId }) {
     }
   }
 
-  const visibleIds = list.map((item) => item.id)
+  const visibleIds = paginatedList.map((item) => item.id)
   const hasAnyItem = visibleIds.length > 0
   const allVisibleSelected = hasAnyItem && visibleIds.every((id) => selectedIds.includes(id))
   const hasSelected = selectedIds.length > 0
@@ -200,6 +215,23 @@ export default function RichMenuList({ selectedOaId }) {
     }
   }
 
+  const handleCreateRichMenu = () => {
+    if (!selectedOaId) {
+      setBindOaDialogOpen(true)
+      return
+    }
+    navigate('/richmenu/create')
+  }
+
+  const closeBindOaDialog = () => {
+    setBindOaDialogOpen(false)
+  }
+
+  const handleGoToOaManagement = () => {
+    setBindOaDialogOpen(false)
+    navigate('/oa-management')
+  }
+
   return (
     <section className="panel richmenu-list-page">
       <div className="page-head">
@@ -234,13 +266,12 @@ export default function RichMenuList({ selectedOaId }) {
           >
             {unlinkingDefault ? '處理中...' : '關閉預設圖文選單'}
           </button>
-          <button className="btn btn-success" onClick={() => navigate('/richmenu/create')}>新增圖文選單</button>
+          <button className="btn btn-success" onClick={handleCreateRichMenu}>新增圖文選單</button>
         </div>
       </div>
 
       <div className="toolbar">
         <div className="toolbar-left">
-          <span className="toolbar-label">搜尋：</span>
           <input
             className="toolbar-search-input"
             value={searchKeyword}
@@ -248,7 +279,14 @@ export default function RichMenuList({ selectedOaId }) {
             placeholder="請輸入圖文選單名稱關鍵字"
             disabled={!selectedOaId}
           />
-          <button className="btn btn-light toolbar-search-btn" onClick={fetchList} disabled={!selectedOaId}>搜尋</button>
+          <button
+            type="button"
+            className="btn btn-light toolbar-search-btn"
+            onClick={() => fetchList(true)}
+            disabled={!selectedOaId}
+          >
+            搜尋
+          </button>
         </div>
         <div className="toolbar-right">
           <span className="toolbar-label">每頁筆數：</span>
@@ -293,7 +331,7 @@ export default function RichMenuList({ selectedOaId }) {
             {!loading && list.length === 0 && (
               <tr><td colSpan={7}>目前沒有圖文選單</td></tr>
             )}
-            {!loading && list.map((item) => (
+            {!loading && paginatedList.map((item) => (
               <tr key={item.id}>
                 <td className="checkbox-col">
                   <input
@@ -352,6 +390,51 @@ export default function RichMenuList({ selectedOaId }) {
         </table>
       </div>
 
+      {!loading && selectedOaId && list.length > 0 && (
+        <div className="list-pagination" role="navigation" aria-label="圖文選單列表分頁">
+          <span className="list-pagination-info">
+            顯示第 {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, list.length)} 筆，共 {list.length} 筆
+          </span>
+          <div className="list-pagination-controls">
+            <button
+              type="button"
+              className="btn btn-light list-pagination-btn"
+              onClick={() => setPage(1)}
+              disabled={page <= 1}
+            >
+              第一頁
+            </button>
+            <button
+              type="button"
+              className="btn btn-light list-pagination-btn"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+            >
+              上一頁
+            </button>
+            <span className="list-pagination-page">
+              第 {page} / {totalPages} 頁
+            </span>
+            <button
+              type="button"
+              className="btn btn-light list-pagination-btn"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+            >
+              下一頁
+            </button>
+            <button
+              type="button"
+              className="btn btn-light list-pagination-btn"
+              onClick={() => setPage(totalPages)}
+              disabled={page >= totalPages}
+            >
+              最末頁
+            </button>
+          </div>
+        </div>
+      )}
+
       {publishDialogOpen && (
         <div className="modal-backdrop" onMouseDown={closePublishDialog}>
           <div className="modal-card publish-dialog-card" onMouseDown={(e) => e.stopPropagation()}>
@@ -401,6 +484,37 @@ export default function RichMenuList({ selectedOaId }) {
             <div className="modal-footer">
               <button type="button" className="btn btn-success" onClick={handlePublishSubmit} disabled={publishing}>
                 {publishing ? '處理中...' : '確認發佈'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bindOaDialogOpen && (
+        <div className="modal-backdrop" onMouseDown={closeBindOaDialog}>
+          <div className="modal-card publish-dialog-card" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>尚未綁定 LINE OA</h3>
+              <button
+                type="button"
+                className="publish-dialog-close"
+                onClick={closeBindOaDialog}
+                aria-label="關閉"
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal-content">
+              <div className="publish-dialog-hint">
+                目前尚未綁定 LINE OA，請先至 OA 管理完成綁定後，再新增圖文選單。
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-light" onClick={closeBindOaDialog}>
+                取消
+              </button>
+              <button type="button" className="btn btn-success" onClick={handleGoToOaManagement}>
+                前往 OA 管理
               </button>
             </div>
           </div>

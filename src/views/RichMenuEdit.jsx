@@ -102,8 +102,26 @@ function areasFromLayout(layout) {
   return layout.areas.map((area) => ({
     bounds: { ...area.bounds },
     areaName: '',
-    action: { type: 'none' }
+    action: { type: 'message', text: '' }
   }))
+}
+
+function hasAreaFilledData(area) {
+  if (!area || typeof area !== 'object') return false
+  if ((area.areaName || '').trim()) return true
+  const action = normalizeAction(area.action)
+  switch (action.type) {
+    case 'message':
+      return Boolean(action.text?.trim())
+    case 'uri':
+      return Boolean(action.uri?.trim())
+    case 'postback':
+      return Boolean(action.data?.trim() || action.displayText?.trim())
+    case 'richmenuswitch':
+      return Boolean(action.richMenuAliasId?.trim() || action.data?.trim())
+    default:
+      return false
+  }
 }
 
 const MIN_AREA_SIZE = 40
@@ -266,6 +284,14 @@ export default function RichMenuEdit({ selectedOaId }) {
   }, [savedRichMenus, id])
 
   const applyLayout = (layout) => {
+    if (layout.id === activeLayoutId) return
+    const hasFilledData = formData.areas.some(hasAreaFilledData)
+    if (hasFilledData) {
+      const shouldClear = window.confirm(
+        '切換模板會清除當前所有按鈕設定，是否要清除？'
+      )
+      if (!shouldClear) return
+    }
     setActiveLayoutId(layout.id)
     setSelectedAreaIndex(null)
     setExpandedAreaIndex(null)
@@ -326,7 +352,7 @@ export default function RichMenuEdit({ selectedOaId }) {
         {
           bounds: getDefaultBoundsForNewArea(newIndex, canvasH),
           areaName: '',
-          action: { type: 'none' }
+          action: { type: 'message', text: '' }
         }
       ]
     }))

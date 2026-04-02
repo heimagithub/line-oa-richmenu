@@ -3,6 +3,8 @@ import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-r
 import RichMenuList from './views/RichMenuList'
 import RichMenuEdit from './views/RichMenuEdit'
 import OAManagement from './views/OAManagement'
+import PricingPlan from './views/PricingPlan'
+import PaymentHistory from './views/PaymentHistory'
 import { authApi } from './api/auth'
 import { oaApi } from './api/oa'
 
@@ -70,8 +72,8 @@ function Header({ dark, onToggleTheme, selectedOaId, onSelectOa, currentUser, on
 
   return (
     <header className="app-header">
-      <div className="app-header-title">圖文選單管理</div>
-      <div className="app-header-actions">
+      <div className="app-header-left">
+        <div className="app-header-title">圖文選單管理</div>
         <div className="oa-dropdown" ref={oaMenuRef}>
           <button
             type="button"
@@ -114,11 +116,25 @@ function Header({ dark, onToggleTheme, selectedOaId, onSelectOa, currentUser, on
                   <span className="oa-dropdown-item-label">{item.name}</span>
                 </button>
               ))}
+              <Link
+                to="/oa-management"
+                className="oa-dropdown-item"
+                role="menuitem"
+                onClick={() => setOaMenuOpen(false)}
+              >
+                <span className="oa-logo oa-logo-sm oa-logo-blue">管</span>
+                <span className="oa-dropdown-item-label">OA 管理</span>
+              </Link>
             </div>
           )}
         </div>
-        <Link to="/oa-management" className="header-link-btn">
-          OA 管理
+      </div>
+      <div className="app-header-actions">
+        <Link to="/pricing" className="header-link-btn" title="查看方案">
+          付費
+        </Link>
+        <Link to="/payment-history" className="header-link-btn" title="付費紀錄">
+          付費紀錄
         </Link>
         <div className="avatar-menu" ref={avatarMenuRef}>
           <button
@@ -450,6 +466,8 @@ function AppRoutes({ selectedOaId, onSelectOa, oaOptions, refreshOaList }) {
           />
         }
       />
+      <Route path="/pricing" element={<PricingPlan />} />
+      <Route path="/payment-history" element={<PaymentHistory />} />
       <Route path="*" element={<Navigate to="/richmenu/list" replace />} />
     </Routes>
   )

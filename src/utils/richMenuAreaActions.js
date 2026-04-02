@@ -19,7 +19,6 @@ export function getDefaultBoundsForNewArea(index, canvasH = FULL_CANVAS_H) {
 }
 
 export const ACTION_TYPE_OPTIONS = [
-  { id: 'none', label: '無動作' },
   { id: 'message', label: '傳送訊息' },
   { id: 'uri', label: '開啟網址' },
   { id: 'postback', label: 'Postback' },
@@ -27,8 +26,9 @@ export const ACTION_TYPE_OPTIONS = [
 ]
 
 export function getActionTypeLabel(type) {
+  if (!type || type === 'none') return '無動作'
   const found = ACTION_TYPE_OPTIONS.find((o) => o.id === type)
-  return found ? found.label : type || 'none'
+  return found ? found.label : type
 }
 
 export function normalizeAction(raw) {
