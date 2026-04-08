@@ -225,6 +225,7 @@ export default function RichMenuEdit({ selectedOaId }) {
   const [formData, setFormData] = useState({
     name: '',
     chatBarText: '查看更多',
+    selected: false,
     imageUrl: '',
     areas: areasFromLayout(fullLayouts[0])
   })
@@ -547,7 +548,7 @@ export default function RichMenuEdit({ selectedOaId }) {
       chatBarText: formData.chatBarText,
       ...(isDataUrlImage ? { imageBase64: formData.imageUrl } : { imageUrl: formData.imageUrl }),
       size: { width: CANVAS_W, height: canvasH },
-      selected: false,
+      selected: Boolean(formData.selected),
       oaId: selectedOaId,
       areas: formData.areas.map((a) => ({
         bounds: a.bounds,
@@ -605,6 +606,27 @@ export default function RichMenuEdit({ selectedOaId }) {
                 <input value={formData.name} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} />
                 <label>聊天室選單文字</label>
                 <input value={formData.chatBarText} onChange={(e) => setFormData((p) => ({ ...p, chatBarText: e.target.value }))} />
+                <label className="menu-size-label">預設顯示狀態</label>
+                <div className="menu-size-group" role="radiogroup" aria-label="預設顯示狀態">
+                  <button
+                    type="button"
+                    className={`menu-size-option ${formData.selected ? 'active' : ''}`}
+                    role="radio"
+                    aria-checked={formData.selected === true}
+                    onClick={() => setFormData((p) => ({ ...p, selected: true }))}
+                  >
+                    <span className="menu-size-option-title">預設展開</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`menu-size-option ${!formData.selected ? 'active' : ''}`}
+                    role="radio"
+                    aria-checked={formData.selected === false}
+                    onClick={() => setFormData((p) => ({ ...p, selected: false }))}
+                  >
+                    <span className="menu-size-option-title">預設收合</span>
+                  </button>
+                </div>
                 <label className="menu-size-label">選單大小</label>
                 <div className="menu-size-group" role="radiogroup" aria-label="選單大小">
                   <button
