@@ -9,29 +9,10 @@ import { authApi } from './api/auth'
 import { oaApi } from './api/oa'
 import { paymentApi } from './api/payment'
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
-
-function loadGoogleIdentityScript() {
-  if (window.google?.accounts?.oauth2) {
-    return Promise.resolve(window.google)
-  }
-  return new Promise((resolve, reject) => {
-    const existingScript = document.querySelector('script[data-google-identity]')
-    if (existingScript) {
-      existingScript.addEventListener('load', () => resolve(window.google))
-      existingScript.addEventListener('error', () => reject(new Error('Google SDK 載入失敗')))
-      return
-    }
-    const script = document.createElement('script')
-    script.src = 'https://accounts.google.com/gsi/client'
-    script.async = true
-    script.defer = true
-    script.dataset.googleIdentity = 'true'
-    script.onload = () => resolve(window.google)
-    script.onerror = () => reject(new Error('Google SDK 載入失敗'))
-    document.head.appendChild(script)
-  })
-}
+const LINE_LOGIN_CHANNEL_ID = import.meta.env.VITE_LINE_LOGIN_CHANNEL_ID || import.meta.env.VITE_LINE_CHANNEL_ID
+const LINE_LOGIN_REDIRECT_URI =
+  import.meta.env.VITE_LINE_LOGIN_REDIRECT_URI || import.meta.env.VITE_LINE_REDIRECT_URI || `${window.location.origin}/login`
+const LINE_LOGIN_STATE_KEY = 'line_login_state'
 
 function textToLogo(name) {
   return (name || 'O').slice(0, 1).toUpperCase()
@@ -217,260 +198,81 @@ function Header({ dark, onToggleTheme, selectedOaId, onSelectOa, currentUser, on
 function LoginPage({ onLoginSuccess }) {
   const navigate = useNavigate()
   const location = useLocation()
-  const [account, setAccount] = useState('heima@gmail.com')
-  const [password, setPassword] = useState('stock168')
   const [submitting, setSubmitting] = useState(false)
-  const [isLoginOpen, setIsLoginOpen] = useState(true)
-  const [isRegisterOpen, setIsRegisterOpen] = useState(false)
-  const [registerName, setRegisterName] = useState('')
-  const [registerEmail, setRegisterEmail] = useState('')
-  const [registerPassword, setRegisterPassword] = useState('')
   const [loginErrorMessage, setLoginErrorMessage] = useState('')
-  const [registerErrorMessage, setRegisterErrorMessage] = useState('')
-  const [registerNoticeMessage, setRegisterNoticeMessage] = useState('')
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
 
   const fromPath = location.state?.from?.pathname || '/richmenu/list'
 
-  const handleAccountLogin = async (event) => {
-    event.preventDefault()
-    setLoginErrorMessage('')
-    if (!account.trim() || !password.trim()) {
-      setLoginErrorMessage('請輸入帳號與密碼')
-      return
-    }
-    setSubmitting(true)
-    try {
-      const res = await authApi.login({ email: account.trim(), password: password.trim() })
-      onLoginSuccess({
-        user: res?.data?.user || null
-      })
-      navigate(fromPath, { replace: true })
-    } catch (error) {
-      setLoginErrorMessage(error?.response?.data?.message || '登入失敗')
-    } finally {
-      setSubmitting(false)
-    }
-  }
+  useEffect(() => {
+    const qp = new URLSearchParams(location.search)
+    const code = (qp.get('code') || '').trim()
+    const callbackState = (qp.get('state') || '').trim()
+    if (!code) return
 
-  const handleRegister = async (event) => {
-    event.preventDefault()
-    setRegisterErrorMessage('')
-    setRegisterNoticeMessage('')
-    if (!registerName.trim() || !registerEmail.trim() || !registerPassword.trim()) {
-      setRegisterErrorMessage('註冊請輸入姓名、信箱與密碼')
+    const expectedState = sessionStorage.getItem(LINE_LOGIN_STATE_KEY) || ''
+    // Some browsers / flows may lose sessionStorage during OAuth redirect.
+    // Enforce state check only when we still have the expected value locally.
+    if (!callbackState || (expectedState && callbackState !== expectedState)) {
+      setLoginErrorMessage('LINE 登入驗證失敗，請重新登入')
       return
     }
-    if (!registerEmail.includes('@')) {
-      setRegisterErrorMessage('請輸入正確的信箱格式')
-      return
-    }
-    setSubmitting(true)
-    try {
-      await authApi.register({
-        name: registerName.trim(),
-        email: registerEmail.trim(),
-        password: registerPassword.trim(),
-        confirmPassword: registerPassword.trim()
-      })
-      setAccount(registerEmail.trim())
-      setPassword('')
-      setRegisterName('')
-      setRegisterEmail('')
-      setRegisterPassword('')
-      setRegisterNoticeMessage('註冊完成，請使用剛建立的帳號登入')
-      setTimeout(() => {
-        setIsRegisterOpen(false)
-        setIsLoginOpen(true)
-        setRegisterNoticeMessage('')
-      }, 1000)
-    } catch (error) {
-      setRegisterErrorMessage(error?.response?.data?.message || '註冊失敗')
-    } finally {
-      setSubmitting(false)
-    }
-  }
 
-  const handleGoogleLogin = async () => {
-    setLoginErrorMessage('')
-    if (!GOOGLE_CLIENT_ID) {
-      setLoginErrorMessage('尚未設定 Google Client ID，請先設定 VITE_GOOGLE_CLIENT_ID')
-      return
-    }
-    setIsGoogleLoading(true)
-    try {
-      const google = await loadGoogleIdentityScript()
-      if (!google?.accounts?.oauth2) {
-        throw new Error('Google OAuth 初始化失敗')
-      }
-      const tokenResponse = await new Promise((resolve, reject) => {
-        const tokenClient = google.accounts.oauth2.initTokenClient({
-          client_id: GOOGLE_CLIENT_ID,
-          scope: 'openid email profile',
-          callback: (response) => {
-            if (response?.error) {
-              reject(new Error(response.error))
-              return
-            }
-            resolve(response)
-          }
+    let cancelled = false
+    const runLogin = async () => {
+      setSubmitting(true)
+      setLoginErrorMessage('')
+      try {
+        const res = await authApi.lineLogin(code)
+        if (cancelled) return
+        onLoginSuccess({
+          user: res?.data?.user || null
         })
-        tokenClient.requestAccessToken({ prompt: 'consent' })
-      })
-      const accessToken = tokenResponse?.access_token
-      if (!accessToken) {
-        throw new Error('未取得 Google Access Token')
+        sessionStorage.removeItem(LINE_LOGIN_STATE_KEY)
+        navigate(fromPath, { replace: true })
+      } catch (error) {
+        if (cancelled) return
+        setLoginErrorMessage(error?.response?.data?.message || 'LINE 登入失敗')
+      } finally {
+        if (!cancelled) {
+          setSubmitting(false)
+        }
       }
-      const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      })
-      if (!profileRes.ok) {
-        throw new Error('讀取 Google 使用者資料失敗')
-      }
-      const profile = await profileRes.json()
-      const googleEmail = profile.email || ''
-      const googleName = profile.name || profile.email || 'Google User'
-      const googlePassword = `Google_${profile.sub || Date.now()}!`
-      await authApi.register({
-        name: googleName,
-        email: googleEmail,
-        password: googlePassword,
-        confirmPassword: googlePassword
-      }).catch(() => null)
-      const res = await authApi.login({
-        email: googleEmail,
-        password: googlePassword
-      })
-      onLoginSuccess({
-        user: { ...(res?.data?.user || {}), avatarUrl: profile.picture || '' }
-      })
-      navigate(fromPath, { replace: true })
-    } catch (error) {
-      setLoginErrorMessage(error?.message || 'Google 登入失敗')
-    } finally {
-      setIsGoogleLoading(false)
     }
+    runLogin()
+    return () => {
+      cancelled = true
+    }
+  }, [location.search, fromPath, navigate, onLoginSuccess])
+
+  const handleLineLogin = () => {
+    setLoginErrorMessage('')
+    if (!LINE_LOGIN_CHANNEL_ID) {
+      setLoginErrorMessage('尚未設定 LINE Channel ID（請設定 VITE_LINE_LOGIN_CHANNEL_ID）')
+      return
+    }
+    const randomState = `${Date.now()}_${Math.random().toString(36).slice(2)}`
+    sessionStorage.setItem(LINE_LOGIN_STATE_KEY, randomState)
+    const authUrl = new URL('https://access.line.me/oauth2/v2.1/authorize')
+    authUrl.searchParams.set('response_type', 'code')
+    authUrl.searchParams.set('client_id', LINE_LOGIN_CHANNEL_ID)
+    authUrl.searchParams.set('redirect_uri', LINE_LOGIN_REDIRECT_URI)
+    authUrl.searchParams.set('state', randomState)
+    authUrl.searchParams.set('scope', 'profile openid email')
+    window.location.assign(authUrl.toString())
   }
 
   return (
     <div className="login-shell">
-      {isLoginOpen ? (
-        <div className="login-card">
-          <h1>登入</h1>
-          <p className="login-hint">請使用帳號密碼登入。</p>
-          <form onSubmit={handleAccountLogin} className="login-form">
-            <label htmlFor="login-account">帳號</label>
-            <input
-              id="login-account"
-              type="text"
-              value={account}
-              onChange={(event) => setAccount(event.target.value)}
-              placeholder="請輸入帳號或 Email"
-              autoComplete="username"
-            />
+      <div className="login-card">
+        <h1>LINE 登入</h1>
+        <p className="login-hint">點擊按鈕後，前往 LINE 授權並自動登入。</p>
 
-            <label htmlFor="login-password">密碼</label>
-            <input
-              id="login-password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="請輸入密碼"
-              autoComplete="current-password"
-            />
+        {loginErrorMessage ? <div className="login-error">{loginErrorMessage}</div> : null}
 
-            <div className="login-register-entry">
-              <button
-                type="button"
-                className="login-register-link"
-                onClick={() => {
-                  setLoginErrorMessage('')
-                  setRegisterErrorMessage('')
-                  setRegisterNoticeMessage('')
-                  setIsLoginOpen(false)
-                  setIsRegisterOpen(true)
-                }}
-              >
-                註冊
-              </button>
-            </div>
-
-            {loginErrorMessage ? <div className="login-error">{loginErrorMessage}</div> : null}
-
-            <button type="submit" className="btn btn-success login-submit-btn">
-              {submitting ? '登入中...' : '登入'}
-            </button>
-          </form>
-
-          {/* 暫時隱藏 Google 登入入口 */}
-        </div>
-      ) : null}
-      {isRegisterOpen ? (
-        <div
-          className="register-dialog-backdrop"
-          role="presentation"
-          onClick={() => {
-            setRegisterErrorMessage('')
-            setRegisterNoticeMessage('')
-            setIsRegisterOpen(false)
-            setIsLoginOpen(true)
-          }}
-        >
-          <div className="register-dialog" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
-            <h2>註冊</h2>
-            <form onSubmit={handleRegister} className="login-form">
-              <label htmlFor="register-name">姓名</label>
-              <input
-                id="register-name"
-                type="text"
-                value={registerName}
-                onChange={(event) => setRegisterName(event.target.value)}
-                placeholder="請輸入姓名"
-              />
-              <label htmlFor="register-email">信箱</label>
-              <input
-                id="register-email"
-                type="email"
-                value={registerEmail}
-                onChange={(event) => setRegisterEmail(event.target.value)}
-                placeholder="請輸入信箱"
-                autoComplete="email"
-              />
-
-              <label htmlFor="register-password">密碼</label>
-              <input
-                id="register-password"
-                type="password"
-                value={registerPassword}
-                onChange={(event) => setRegisterPassword(event.target.value)}
-                placeholder="請輸入密碼"
-                autoComplete="new-password"
-              />
-
-              {registerNoticeMessage ? <div className="login-notice">{registerNoticeMessage}</div> : null}
-              {registerErrorMessage ? <div className="login-error">{registerErrorMessage}</div> : null}
-
-              <div className="register-dialog-actions">
-                <button
-                  type="button"
-                  className="btn btn-light"
-                  onClick={() => {
-                    setRegisterErrorMessage('')
-                    setRegisterNoticeMessage('')
-                    setIsRegisterOpen(false)
-                    setIsLoginOpen(true)
-                  }}
-                >
-                  取消
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>
-                  {submitting ? '處理中...' : '完成註冊'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+        <button type="button" className="btn login-line-btn" onClick={handleLineLogin} disabled={submitting}>
+          {submitting ? '登入中...' : '使用 LINE 登入'}
+        </button>
+      </div>
     </div>
   )
 }
@@ -493,8 +295,8 @@ function AppRoutes({ selectedOaId, onSelectOa, oaOptions, refreshOaList }) {
           />
         }
       />
-      <Route path="/pricing" element={<PricingPlan />} />
-      <Route path="/payment-history" element={<PaymentHistory />} />
+      <Route path="/pricing" element={<PricingPlan selectedOaId={selectedOaId} oaOptions={oaOptions} />} />
+      <Route path="/payment-history" element={<PaymentHistory oaOptions={oaOptions} />} />
       <Route path="*" element={<Navigate to="/richmenu/list" replace />} />
     </Routes>
   )
@@ -541,12 +343,12 @@ export default function App() {
   useEffect(() => {
     let cancelled = false
     const loadPaymentValidity = async () => {
-      if (!currentUser) {
+      if (!currentUser || !selectedOaId) {
         setPaymentValidity(null)
         return
       }
       try {
-        const res = await paymentApi.check()
+        const res = await paymentApi.check({ oaId: selectedOaId })
         if (cancelled) return
         setPaymentValidity(res?.data || null)
       } catch (e) {
@@ -559,7 +361,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [currentUser])
+  }, [currentUser, selectedOaId])
 
   useEffect(() => {
     let cancelled = false

@@ -16,7 +16,7 @@ function statusLabel(status) {
   return status || '—'
 }
 
-export default function PaymentHistory() {
+export default function PaymentHistory({ oaOptions }) {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -62,6 +62,7 @@ export default function PaymentHistory() {
             <tr>
               <th>訂單編號</th>
               <th>方案</th>
+              <th>所屬 OA</th>
               <th>週期</th>
               <th>金額</th>
               <th>狀態</th>
@@ -73,13 +74,13 @@ export default function PaymentHistory() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} style={{ textAlign: 'center' }}>
+                <td colSpan={9} style={{ textAlign: 'center' }}>
                   載入中…
                 </td>
               </tr>
             ) : orders.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ textAlign: 'center' }}>
+                <td colSpan={9} style={{ textAlign: 'center' }}>
                   尚無付費紀錄
                 </td>
               </tr>
@@ -88,6 +89,7 @@ export default function PaymentHistory() {
                 <tr key={order.orderId}>
                   <td className="payment-order-id">{order.orderId}</td>
                   <td>{order.planName || order.productName || '—'}</td>
+                  <td>{oaOptions?.find((item) => item.id === order.oaId)?.name || order.oaId || '—'}</td>
                   <td>{order.billingCycle === 'yearly' ? '年繳' : order.billingCycle === 'monthly' ? '月繳' : order.billingCycle || '—'}</td>
                   <td>
                     NT${' '}

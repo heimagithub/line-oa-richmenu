@@ -8,7 +8,7 @@ function formatPrice(value) {
   return new Intl.NumberFormat('zh-TW').format(value)
 }
 
-export default function PricingPlan() {
+export default function PricingPlan({ selectedOaId, oaOptions }) {
   const [billingCycle, setBillingCycle] = useState('monthly')
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [paymentValidity, setPaymentValidity] = useState(null)
@@ -27,12 +27,21 @@ export default function PricingPlan() {
     }
   }, [billingCycle])
 
+  const currentOaName = useMemo(() => {
+    if (!selectedOaId) return ''
+    return oaOptions?.find((item) => item.id === selectedOaId)?.name || selectedOaId
+  }, [oaOptions, selectedOaId])
+
   useEffect(() => {
     let cancelled = false
 
     const load = async () => {
+      if (!selectedOaId) {
+        if (!cancelled) setPaymentValidity(null)
+        return
+      }
       try {
-        const res = await paymentApi.check()
+        const res = await paymentApi.check({ oaId: selectedOaId })
         if (!cancelled) setPaymentValidity(res?.data || null)
       } catch {
         if (!cancelled) setPaymentValidity({ isPaid: false })
@@ -43,12 +52,16 @@ export default function PricingPlan() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [selectedOaId])
 
   const handleLinePayCheckout = async () => {
+    if (!selectedOaId) {
+      window.alert('請先建立或選擇一個 LINE OA')
+      return
+    }
     setCheckoutLoading(true)
     try {
-      const res = await paymentApi.createOrder({ billingCycle })
+      const res = await paymentApi.createOrder({ oaId: selectedOaId, billingCycle })
       const paymentUrl = res?.data?.paymentUrl
       if (!paymentUrl) {
         window.alert('無法取得付款連結，請稍後再試。')
@@ -102,12 +115,15 @@ export default function PricingPlan() {
         <div className="pricing-summary">
           {billingCycle === 'yearly' ? '年付金額：NT$3,600（300 x 12）' : '月付金額：NT$600'}
         </div>
+        <div className="pricing-summary">
+          {selectedOaId ? `目前升級 OA：${currentOaName}` : '請先建立或選擇一個 LINE OA'}
+        </div>
 
         <button
           type="button"
           className="pricing-linepay-btn"
           onClick={handleLinePayCheckout}
-          disabled={paymentValidity?.isPaid || checkoutLoading}
+          disabled={!selectedOaId || paymentValidity?.isPaid || checkoutLoading}
         >
           {paymentValidity?.isPaid ? '目前使用方案' : checkoutLoading ? '建立訂單中…' : '使用 LINE Pay 付費'}
         </button>

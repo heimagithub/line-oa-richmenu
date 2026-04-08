@@ -7,7 +7,7 @@ export const paymentApi = {
   listOrders() {
     return request.get('/payments/orders')
   },
-  check() {
-    return request.get('/payments/check')
+  check(params) {
+    return request.get('/payments/check', { params })
   }
 }

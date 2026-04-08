@@ -119,10 +119,14 @@ export default function RichMenuList({ selectedOaId }) {
 
   const handlePublishSubmit = async () => {
     if (!publishTarget) return
+    if (!selectedOaId) {
+      alert('請先選擇一個 OA')
+      return
+    }
 
     setPublishing(true)
     try {
-      const checkRes = await paymentApi.check()
+      const checkRes = await paymentApi.check({ oaId: selectedOaId })
       const isPaid = Boolean(checkRes?.data?.isPaid)
       if (!isPaid) {
         setUnpaidPublishDialogOpen(true)
