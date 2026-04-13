@@ -222,6 +222,7 @@ export default function RichMenuEdit({ selectedOaId }) {
   const [savedRichMenus, setSavedRichMenus] = useState([])
   const previewRef = useRef(null)
   const areaAccordionListRef = useRef(null)
+  const [localImageFileName, setLocalImageFileName] = useState('')
   const [formData, setFormData] = useState({
     name: '',
     chatBarText: '查看更多',
@@ -257,6 +258,7 @@ export default function RichMenuEdit({ selectedOaId }) {
         setMenuSize(inferredSize)
         const layoutList = layoutsForMenuSize(inferredSize)
         setFormData((prev) => ({ ...prev, ...restNormalized, areas }))
+        setLocalImageFileName('')
         const matchedLayout = layoutList.find((l) => l.areas.length === areas.length)
         if (matchedLayout) setActiveLayoutId(matchedLayout.id)
       } catch (error) {
@@ -319,6 +321,7 @@ export default function RichMenuEdit({ selectedOaId }) {
   const handleImageChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    setLocalImageFileName(file.name)
     const reader = new FileReader()
     reader.onload = (event) => {
       setFormData((prev) => ({ ...prev, imageUrl: event.target?.result || '' }))
@@ -599,7 +602,15 @@ export default function RichMenuEdit({ selectedOaId }) {
             </button>
           </div>
 
-          <div className="tab-content">
+          <div className="tab-content tab-content--with-file-slot">
+            <input
+              id="richmenu-sidebar-image-file"
+              type="file"
+              accept="image/jpeg,image/png,image/jpg"
+              className="richmenu-file-input-native"
+              onChange={handleImageChange}
+              tabIndex={-1}
+            />
             {activeTab === 'basic' ? (
               <>
                 <label>圖文選單名稱</label>
@@ -651,7 +662,14 @@ export default function RichMenuEdit({ selectedOaId }) {
                   </button>
                 </div>
                 <label>上傳圖片</label>
-                <input type="file" accept="image/jpeg,image/png,image/jpg" onChange={handleImageChange} />
+                <div className="richmenu-file-picker">
+                  <label htmlFor="richmenu-sidebar-image-file" className="btn btn-light richmenu-file-picker-btn">
+                    選擇檔案
+                  </label>
+                  <span className="richmenu-file-picker-name" title={localImageFileName || undefined}>
+                    {localImageFileName || (formData.imageUrl ? '已設定圖片' : '尚未選擇檔案')}
+                  </span>
+                </div>
               </>
             ) : (
               <AreaRegionPanel
