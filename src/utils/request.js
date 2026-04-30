@@ -1,9 +1,13 @@
 import axios from 'axios'
 
-const defaultApiBaseUrl = 'https://26tif7inm6.execute-api.ap-northeast-1.amazonaws.com/api/v1'
+const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL
+if (!rawApiBaseUrl) {
+  // 不再 fallback 到 prod API Gateway，避免 dev build 不小心打到 prod
+  console.warn('[request] VITE_API_BASE_URL 未設定，請於 .env.* 中明確指定 API base URL')
+}
 
 const instance = axios.create({
-  baseURL: (import.meta.env.VITE_API_BASE_URL || defaultApiBaseUrl).replace(/\/$/, ''),
+  baseURL: (rawApiBaseUrl || '').replace(/\/$/, ''),
   timeout: 30000,
   withCredentials: true,
   headers: {

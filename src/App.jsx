@@ -210,9 +210,8 @@ function LoginPage({ onLoginSuccess }) {
     if (!code) return
 
     const expectedState = sessionStorage.getItem(LINE_LOGIN_STATE_KEY) || ''
-    // Some browsers / flows may lose sessionStorage during OAuth redirect.
-    // Enforce state check only when we still have the expected value locally.
-    if (!callbackState || (expectedState && callbackState !== expectedState)) {
+    if (!callbackState || !expectedState || callbackState !== expectedState) {
+      sessionStorage.removeItem(LINE_LOGIN_STATE_KEY)
       setLoginErrorMessage('LINE 登入驗證失敗，請重新登入')
       return
     }

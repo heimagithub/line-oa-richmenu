@@ -46,10 +46,6 @@ export const richMenuApi = {
     return request.get(`/richmenus/${id}/status`, { params })
   },
 
-  async setRichMenuToLine(data) {
-    return { success: true, data }
-  },
-
   async publishRichMenu(id, data = {}) {
     return request.post(`/richmenus/${id}/publish`, data)
   },

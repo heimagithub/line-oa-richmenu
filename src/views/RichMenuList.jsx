@@ -140,8 +140,9 @@ export default function RichMenuList({ selectedOaId }) {
       setSelectedIds([])
       await fetchList()
       closePublishDialog()
-    } catch (error) {
-      alert('發佈失敗')
+    } catch (err) {
+      const msg = err?.response?.data?.error?.message || '發佈失敗'
+      alert(`發佈失敗：${msg}`)
     } finally {
       setPublishing(false)
     }
@@ -162,8 +163,9 @@ export default function RichMenuList({ selectedOaId }) {
       setSelectedIds([])
       await fetchList()
       closePublishDialog()
-    } catch (error) {
-      alert('發佈失敗')
+    } catch (err) {
+      const msg = err?.response?.data?.error?.message || '發佈失敗'
+      alert(`發佈失敗：${msg}`)
     } finally {
       setPublishing(false)
     }
