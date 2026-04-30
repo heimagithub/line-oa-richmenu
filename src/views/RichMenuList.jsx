@@ -294,6 +294,8 @@ export default function RichMenuList({ selectedOaId }) {
             className="btn btn-danger"
             onClick={handleRemoveAllRichMenus}
             disabled={!selectedOaId || removingAllRichMenus}
+            hidden
+            style={{ display: 'none' }}
           >
             {removingAllRichMenus ? '處理中...' : '移除所有圖文選單'}
           </button>
