@@ -9,6 +9,30 @@ import { authApi } from './api/auth'
 import { oaApi } from './api/oa'
 import { paymentApi } from './api/payment'
 
+function PricingDialog({ open, onClose, selectedOaId, oaOptions }) {
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
+  if (!open) return null
+  return (
+    <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-label="升級方案">
+      <div className="modal-card pricing-dialog-card" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3 style={{ margin: 0, fontSize: '18px' }}>升級方案</h3>
+          <button type="button" className="publish-dialog-close" onClick={onClose} aria-label="關閉">✕</button>
+        </div>
+        <div className="modal-content">
+          <PricingPlan selectedOaId={selectedOaId} oaOptions={oaOptions} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const LINE_LOGIN_CHANNEL_ID = import.meta.env.VITE_LINE_LOGIN_CHANNEL_ID || import.meta.env.VITE_LINE_CHANNEL_ID
 const LINE_LOGIN_REDIRECT_URI =
   import.meta.env.VITE_LINE_LOGIN_REDIRECT_URI || import.meta.env.VITE_LINE_REDIRECT_URI || `${window.location.origin}/login`
@@ -18,7 +42,7 @@ function textToLogo(name) {
   return (name || 'O').slice(0, 1).toUpperCase()
 }
 
-function Header({ dark, onToggleTheme, selectedOaId, onSelectOa, currentUser, onLogout, oaOptions, paymentValidity }) {
+function Header({ dark, onToggleTheme, selectedOaId, onSelectOa, currentUser, onLogout, oaOptions, paymentValidity, onOpenPricing }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [oaMenuOpen, setOaMenuOpen] = useState(false)
   const avatarMenuRef = useRef(null)
@@ -120,20 +144,21 @@ function Header({ dark, onToggleTheme, selectedOaId, onSelectOa, currentUser, on
       <div className="app-header-actions">
         {paymentValidity ? (
           paymentValidity.isPaid ? (
-            <Link
-              to="/pricing"
+            <button
+              type="button"
               className="header-link-btn header-pro-btn"
               title="PRO 已啟用"
               aria-label="PRO 已啟用"
+              onClick={onOpenPricing}
             >
               <span className="pro-icon-circle" aria-hidden="true">
                 pro
               </span>
-            </Link>
+            </button>
           ) : (
-            <Link to="/pricing" className="header-link-btn" title="查看方案">
+            <button type="button" className="header-link-btn" title="查看方案" onClick={onOpenPricing}>
               付費
-            </Link>
+            </button>
           )
         ) : null}
         <div className="avatar-menu" ref={avatarMenuRef}>
@@ -294,7 +319,17 @@ function AppRoutes({ selectedOaId, onSelectOa, oaOptions, refreshOaList }) {
           />
         }
       />
-      <Route path="/pricing" element={<PricingPlan selectedOaId={selectedOaId} oaOptions={oaOptions} />} />
+      <Route
+        path="/pricing"
+        element={
+          <section className="panel pricing-page">
+            <div className="page-head pricing-page-head">
+              <h2>方案與付費</h2>
+            </div>
+            <PricingPlan selectedOaId={selectedOaId} oaOptions={oaOptions} />
+          </section>
+        }
+      />
       <Route path="/payment-history" element={<PaymentHistory oaOptions={oaOptions} />} />
       <Route path="*" element={<Navigate to="/richmenu/list" replace />} />
     </Routes>
@@ -308,6 +343,7 @@ export default function App() {
   const [oaOptions, setOaOptions] = useState([])
   const [authReady, setAuthReady] = useState(false)
   const [paymentValidity, setPaymentValidity] = useState(null)
+  const [pricingOpen, setPricingOpen] = useState(false)
 
   useLayoutEffect(() => {
     const root = document.documentElement
@@ -436,6 +472,13 @@ export default function App() {
                 onLogout={handleLogout}
                 oaOptions={oaOptions}
                 paymentValidity={paymentValidity}
+                onOpenPricing={() => setPricingOpen(true)}
+              />
+              <PricingDialog
+                open={pricingOpen}
+                onClose={() => setPricingOpen(false)}
+                selectedOaId={selectedOaId}
+                oaOptions={oaOptions}
               />
               <main className="app-main">
                 <AppRoutes
